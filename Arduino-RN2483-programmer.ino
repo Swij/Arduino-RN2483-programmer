@@ -1,11 +1,14 @@
 // Arduino RN2483 programmer
 // Implemented using http://ww1.microchip.com/downloads/en/DeviceDoc/41398B.pdf
+#define SIZE 14
 #define MCLR 4
 #define PGD 5
 #define PGC 6
 
 int keyseq[] = {0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0};
+int testseq[SIZE] = {0xFE, 0xED, 0xFD, 0xAA, 0xDA, 0x01, 0x01, 0x02, 0x13, 0x37, 0x19, 0x93, 0x4E, 0xFA};
 bool serialcomplete = false;
+bool inLVP = false;
 String input = "";
 
 void setup()
@@ -45,51 +48,56 @@ void setup()
 // Enter low-voltage program/verify mode
 void enterLVP()
 {
-  SerialUSB.write("Entering low-voltage program/verify mode\r\n");
-
-  // Pull all programming pins Low
-  digitalWrite(MCLR, LOW);
-  digitalWrite(PGD, LOW);
-  digitalWrite(PGC, LOW);
-
-  // Wait atleast 100ns (P13)
-  delayMicroseconds(1);
-
-  // Set MCLR High then Low
-  digitalWrite(MCLR, HIGH);
-  delayMicroseconds(1);
-  digitalWrite(MCLR, LOW);
-
-  // Wait atleast 1ms (P18)
-  delayMicroseconds(2);
-
-  // Enter key sequence on PGD
-  for (int n = 0; n < 32; n++)
+  if (not(inLVP))
   {
-    //Lower PGC and write bit to PGD
+    inLVP = true;
+    SerialUSB.write("Entering low-voltage program/verify mode\r\n");
+
+    // Pull all programming pins Low
+    digitalWrite(MCLR, LOW);
+    digitalWrite(PGD, LOW);
     digitalWrite(PGC, LOW);
-    digitalWrite(PGD, keyseq[n]);
+
+    // Wait atleast 100ns (P13)
     delayMicroseconds(1);
 
-    //Raise PGC to send bit
-    digitalWrite(PGC, HIGH);
+    // Set MCLR High then Low
+    digitalWrite(MCLR, HIGH);
     delayMicroseconds(1);
+    digitalWrite(MCLR, LOW);
+
+    // Wait atleast 1ms (P18)
+    delayMicroseconds(2);
+
+    // Enter key sequence on PGD
+    for (int n = 0; n < 32; n++)
+    {
+      //Lower PGC and write bit to PGD
+      digitalWrite(PGC, LOW);
+      digitalWrite(PGD, keyseq[n]);
+      delayMicroseconds(1);
+
+      //Raise PGC to send bit
+      digitalWrite(PGC, HIGH);
+      delayMicroseconds(1);
+    }
+    digitalWrite(PGC, LOW);
+
+    // Wait atleast 40ns
+    delayMicroseconds(1);
+
+    // Set MCLR High
+    digitalWrite(MCLR, HIGH);
+
+    // Wait atleast 400us
+    delayMicroseconds(450);
   }
-  digitalWrite(PGC, LOW);
-
-  // Wait atleast 40ns
-  delayMicroseconds(1);
-
-  // Set MCLR High
-  digitalWrite(MCLR, HIGH);
-
-  // Wait atleast 400us
-  delayMicroseconds(450);
 }
 
 // Exit low-voltage program/verify mode
 void exitLVP()
 {
+  inLVP = false;
   SerialUSB.write("Exiting low-voltage program/verify mode\r\n");
   delayMicroseconds(1);
   digitalWrite(MCLR, LOW);
@@ -202,8 +210,8 @@ int sendOp(int cmd, int payload)
 
       // Wait atleast 40ns (P5A)
       delayMicroseconds(1);
-      SerialUSB.write("Sent 4 command bits and 8 data payload bits\r\nResponse: ");
-      SerialUSB.print(String(response, HEX) + "\r\n");
+      //SerialUSB.write("Sent 4 command bits and 8 data payload bits\r\nResponse: ");
+      //SerialUSB.print(String(response, HEX) + "\r\n");
 
       return response;
     }
@@ -225,7 +233,7 @@ int sendOp(int cmd, int payload)
 
       // Wait atleast 40ns (P5A)
       delayMicroseconds(1);
-      SerialUSB.write("Sent 4 command bits and 16 data payload bits\r\n");
+      //SerialUSB.write("Sent 4 command bits and 16 data payload bits\r\n");
 
       return true;
     }
@@ -237,44 +245,100 @@ int sendOp(int cmd, int payload)
   }
 }
 
+// Bulk erase the entire device
 void bulkErase()
 {
-  sendOp(B0000, 0x0E3C);
-  sendOp(B0000, 0x6EF8);
-  sendOp(B0000, 0x0E00);
-  sendOp(B0000, 0x6EF7);
-  sendOp(B0000, 0x0E05);
-  sendOp(B0000, 0x6EF6);
-  sendOp(B1100, 0x0F0F);
-  sendOp(B0000, 0x0E3C);
-  sendOp(B0000, 0x6EF8);
-  sendOp(B0000, 0x0E00);
-  sendOp(B0000, 0x6EF7);
-  sendOp(B0000, 0x0E04);
-  sendOp(B0000, 0x6EF6);
-  sendOp(B1100, 0x8F8F);
+  // Write 0F0F to 3C0005h
+  writeAddressConfig(0x3C, 0x00, 0x05, 0x0F0F);
+  // Write 8F8F to 3C0004h
+  writeAddressConfig(0x3C, 0x00, 0x04, 0x8F8F);
   sendOp(B0000, 0x0000);
   sendOp(B0000, 0x0000);
   // Wait atleast 15ms (P11) to let the erase complete
-  delay(15);
+  delay(20);
 }
 
-void readDeviceID(){
-      sendOp(B0000, 0x0E3F);
-      sendOp(B0000, 0x6EF8);
-      sendOp(B0000, 0x0EFF);
-      sendOp(B0000, 0x6EF7);
-      sendOp(B0000, 0x0EFE);
-      sendOp(B0000, 0x6EF6);
-      sendOp(B1001, 0x0000);
+// Print device IDs on serial
+void readDeviceID()
+{
+  int DEVID1 = readAddress(0x3F, 0xFF, 0xFE);
+  int DEVID2 = readAddress(0x3F, 0xFF, 0xFF);
+  SerialUSB.print("DEVID1: " + String(DEVID1, HEX) + "h\r\n");
+  SerialUSB.print("DEVID2: " + String(DEVID2, HEX) + "h\r\n");
+}
 
-      sendOp(B0000, 0x0E3F);
-      sendOp(B0000, 0x6EF8);
-      sendOp(B0000, 0x0EFF);
-      sendOp(B0000, 0x6EF7);
-      sendOp(B0000, 0x0EFF);
-      sendOp(B0000, 0x6EF6);
-      sendOp(B1001, 0x0000);
+// Sets the TBLPTR to the address to be read/written
+void setTBLPTR(int addru, int addrh, int addrl)
+{
+  sendOp(B0000, 0x0E00 + addru); // MOVLW <Addr[21:16]>
+  sendOp(B0000, 0x6EF8);         // MOVWF TBLPTRU
+  sendOp(B0000, 0x0E00 + addrh); // MOVLW <Addr[15:8]>
+  sendOp(B0000, 0x6EF7);         // MOVWF TBLPTRH
+  sendOp(B0000, 0x0E00 + addrl); // MOVLW <Addr[7:0]>
+  sendOp(B0000, 0x6EF6);         // MOVWF TBLPTRL
+}
+
+// Read value at address
+int readAddress(int addru, int addrh, int addrl)
+{
+  setTBLPTR(addru, addrh, addrl);
+  return sendOp(B1001, 0x0000); // TBLRD *+
+}
+
+// Write value to address in config block
+void writeAddressConfig(int addru, int addrh, int addrl, int value)
+{
+  setTBLPTR(addru, addrh, addrl);
+  sendOp(B1100, value);
+}
+
+// Writes a sequence of bytes into the code memmory
+// bytes.length <= 64, bytes[n] <= 0xFFFF
+void writeCodeSequence(int addru, int addrh, int addrl, int bytes[])
+{
+  int LoopCount = 0;
+
+  // Direct access to code memory
+  sendOp(B0000, 0x8EA6); // BSF EECON1, EEPGD
+  sendOp(B0000, 0x9CA6); // BCF EECON1, CFGS
+  sendOp(B0000, 0x84A6); // BSF EECON1, WREN
+
+  // Point to row to write.
+  setTBLPTR(addru, addrh, addrl);
+
+  // Load write buffer. Repeat for all but the last two bytes.
+  for (int n = 0; n < SIZE - 2; n = n + 2)
+  {
+    sendOp(B1101, (bytes[n + 1] << 8) + bytes[n]);
+  }
+
+  // Load write buffer for last two bytes and start programming
+  sendOp(B1111, (bytes[SIZE - 2] << 8) + bytes[SIZE - 1]);
+
+  // Send NOP and Hold 4th PGC HIGH for atleast 1ms (P9)
+  digitalWrite(PGD, LOW);
+  for (int n = 0; n < 4; n++)
+  {
+    digitalWrite(PGC, LOW);
+    delayMicroseconds(1);
+    digitalWrite(PGC, HIGH);
+    delayMicroseconds(1);
+  }
+  delay(100);
+
+  // Hold PGC LOW for atleast 200us (P10)
+  digitalWrite(PGC, LOW);
+  delayMicroseconds(400);
+}
+
+void readTest()
+{
+  int response;
+  for (int n = 0; n < SIZE; n++)
+  {
+    response = readAddress(0, 0, n);
+    SerialUSB.print(String(response, HEX) + "\r\n");
+  }
 }
 
 void loop()
@@ -283,9 +347,12 @@ void loop()
   {
     char c = SerialUSB.read();
 
-    if (c == '\n' || c == '\r')
+    if (c == '\n' || c == '\r' || c == 'X')
     {
-      serialcomplete = true;
+      if (input != "")
+      {
+        serialcomplete = true;
+      }
       break;
     }
     input += c;
@@ -293,18 +360,34 @@ void loop()
 
   if (serialcomplete)
   {
+    int response;
+    enterLVP();
     switch (input.charAt(0))
     {
     case 'W':
+      SerialUSB.print("Bulk erasing\r\n");
+      bulkErase();
+      SerialUSB.print("Writing\r\n");
+      writeCodeSequence(0, 0, 0, testseq);
+      SerialUSB.print("Done writing\r\n");
       break;
     case 'R':
+      SerialUSB.print("Reading\r\n");
+      readTest();
       break;
     case 'D':
+      SerialUSB.print("Reading device ID\r\n");
+      readDeviceID();
       break;
     case 'E':
+      SerialUSB.print("Bulk erasing\r\n");
+      bulkErase();
       break;
     default:
-      SerialUSB.write("Invalid serial command.");
+      SerialUSB.write("Invalid serial command\r\n");
     }
+    serialcomplete = false;
+    input = "";
+    exitLVP();
   }
 }
