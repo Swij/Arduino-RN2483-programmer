@@ -4,14 +4,18 @@
 #define PGD 5
 #define PGC 6
 
-int keyseq[]  = {0,1,0,0, 1,1,0,1, 0,1,0,0, 0,0,1,1, 0,1,0,0, 1,0,0,0, 0,1,0,1, 0,0,0,0};
+int keyseq[] = {0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0};
+bool serialcomplete = false;
+String input = "";
 
-void setup() {
+void setup()
+{
   // put your setup code here, to run once:
   SerialUSB.begin(57600);
 
   // Wait for serialUSB or start after 30 seconds
-  while ((!SerialUSB) && (millis() < 30000));
+  while ((!SerialUSB) && (millis() < 30000))
+    ;
   SerialUSB.write("SerialUSB set up\r\n");
 
   // Initialize LED
@@ -39,18 +43,19 @@ void setup() {
 }
 
 // Enter low-voltage program/verify mode
-void enterLVP() {
+void enterLVP()
+{
   SerialUSB.write("Entering low-voltage program/verify mode\r\n");
-  
+
   // Pull all programming pins Low
   digitalWrite(MCLR, LOW);
   digitalWrite(PGD, LOW);
   digitalWrite(PGC, LOW);
-  
+
   // Wait atleast 100ns (P13)
   delayMicroseconds(1);
 
-  // Set MCLR High then Low 
+  // Set MCLR High then Low
   digitalWrite(MCLR, HIGH);
   delayMicroseconds(1);
   digitalWrite(MCLR, LOW);
@@ -59,12 +64,13 @@ void enterLVP() {
   delayMicroseconds(2);
 
   // Enter key sequence on PGD
-  for (int n = 0; n < 32; n++) {    
+  for (int n = 0; n < 32; n++)
+  {
     //Lower PGC and write bit to PGD
     digitalWrite(PGC, LOW);
     digitalWrite(PGD, keyseq[n]);
     delayMicroseconds(1);
-    
+
     //Raise PGC to send bit
     digitalWrite(PGC, HIGH);
     delayMicroseconds(1);
@@ -76,13 +82,14 @@ void enterLVP() {
 
   // Set MCLR High
   digitalWrite(MCLR, HIGH);
-  
+
   // Wait atleast 400us
   delayMicroseconds(450);
 }
 
 // Exit low-voltage program/verify mode
-void exitLVP() {
+void exitLVP()
+{
   SerialUSB.write("Exiting low-voltage program/verify mode\r\n");
   delayMicroseconds(1);
   digitalWrite(MCLR, LOW);
@@ -91,55 +98,60 @@ void exitLVP() {
 }
 
 // Serial program/verify operation
-int sendOp(int cmd, int payload) {
+int sendOp(int cmd, int payload)
+{
   bool valid = true;
   bool isread = false;
 
   // Check if command is valid and if it contains a read
-  switch (cmd) {
-    case B0000:
-      break;
-    case B0010:
-      isread = true;
-      break;
-    case B1000:
-      isread = true;
-      break;
-    case B1001:
-      isread = true;
-      break;
-    case B1010:
-      isread = true;
-      break;
-    case B1011:
-      isread = true;
-      break;
-    case B1100:
-      break;
-    case B1101:
-      break;
-    case B1110:
-      break;
-    case B1111:
-      break;
-    default:
-      valid = false;
+  switch (cmd)
+  {
+  case B0000:
+    break;
+  case B0010:
+    isread = true;
+    break;
+  case B1000:
+    isread = true;
+    break;
+  case B1001:
+    isread = true;
+    break;
+  case B1010:
+    isread = true;
+    break;
+  case B1011:
+    isread = true;
+    break;
+  case B1100:
+    break;
+  case B1101:
+    break;
+  case B1110:
+    break;
+  case B1111:
+    break;
+  default:
+    valid = false;
   }
 
   // Check if data payload is the right size
-  if ((isread && (payload > 255)) || (!isread && (payload > 65535))) {
+  if ((isread && (payload > 255)) || (!isread && (payload > 65535)))
+  {
     SerialUSB.write("Invalid number of payload bits\r\n");
     return false;
-  } 
-  
-  if (valid) {
+  }
+
+  if (valid)
+  {
     // Send command bits to the RN2483
-    for (int n = 0; n < 4; n++) {
+    for (int n = 0; n < 4; n++)
+    {
       //Lower PGC and write bit to PGD
       digitalWrite(PGC, LOW);
       digitalWrite(PGD, bitRead(cmd, n));
       delayMicroseconds(1);
-      
+
       //Raise PGC to send bit
       digitalWrite(PGC, HIGH);
       delayMicroseconds(1);
@@ -148,15 +160,17 @@ int sendOp(int cmd, int payload) {
 
     // Wait atleast 40ns (P5)
     delayMicroseconds(1);
-    
-    if (isread) {
+
+    if (isread)
+    {
       // Write 8 payload bits to RN2483
-      for (int n = 0; n < 8; n++) {
+      for (int n = 0; n < 8; n++)
+      {
         //Lower PGC and write bit to PGD
         digitalWrite(PGC, LOW);
         digitalWrite(PGD, bitRead(payload, n));
         delayMicroseconds(1);
-        
+
         //Raise PGC to send bit
         digitalWrite(PGC, HIGH);
         delayMicroseconds(1);
@@ -168,14 +182,15 @@ int sendOp(int cmd, int payload) {
 
       // Wait atleast 20ns (P6)
       delayMicroseconds(1);
-      
+
       // Read 8 response bits from RN2483
       int response = 255;
-      for (int n = 0; n < 8; n++) {
+      for (int n = 0; n < 8; n++)
+      {
         //Raise PGC to recieve bit
         digitalWrite(PGC, HIGH);
         delayMicroseconds(1);
-        
+
         //Lower PGC and read bit from PGD
         digitalWrite(PGC, LOW);
         bitWrite(response, n, digitalRead(PGD));
@@ -188,74 +203,108 @@ int sendOp(int cmd, int payload) {
       // Wait atleast 40ns (P5A)
       delayMicroseconds(1);
       SerialUSB.write("Sent 4 command bits and 8 data payload bits\r\nResponse: ");
-      SerialUSB.print(String(response, HEX)+"\r\n");
-      
+      SerialUSB.print(String(response, HEX) + "\r\n");
+
       return response;
-    } else {
-      // Write all 16 bits from the data payload      
-      for (int n = 0; n < 16; n++) {
+    }
+    else
+    {
+      // Write all 16 bits from the data payload
+      for (int n = 0; n < 16; n++)
+      {
         //Lower PGC and write bit to PGD
         digitalWrite(PGC, LOW);
         digitalWrite(PGD, bitRead(payload, n));
         delayMicroseconds(1);
-        
+
         //Raise PGC to send bit
         digitalWrite(PGC, HIGH);
         delayMicroseconds(1);
       }
       digitalWrite(PGC, LOW);
-      
+
       // Wait atleast 40ns (P5A)
       delayMicroseconds(1);
       SerialUSB.write("Sent 4 command bits and 16 data payload bits\r\n");
 
       return true;
     }
-  } else {
+  }
+  else
+  {
     SerialUSB.write("Command not valid\r\n");
     return false;
   }
 }
 
-void loop() {
-  if(SerialUSB.available()){
-    char ch = SerialUSB.read();
-    switch(ch){
-      case '1':
-        SerialUSB.write("Read address 3FFFFE\r\n");
-        sendOp(B0000, 0x0E3F);
-        sendOp(B0000, 0x6EF8);
-        sendOp(B0000, 0x0EFF);
-        sendOp(B0000, 0x6EF7);
-        sendOp(B0000, 0x0EFE);
-        sendOp(B0000, 0x6EF6);
-        sendOp(B1001, 0x0000);
-        break;
-      case '2':
-        SerialUSB.write("Read address 3FFFFF\r\n");
-        sendOp(B0000, 0x0E3F);
-        sendOp(B0000, 0x6EF8);
-        sendOp(B0000, 0x0EFF);
-        sendOp(B0000, 0x6EF7);
-        sendOp(B0000, 0x0EFF);
-        sendOp(B0000, 0x6EF6);
-        sendOp(B1001, 0x0000);
-        break;
-      case '3':
-        exitLVP();
-        enterLVP();
-        break;
-      case '4':
-        exitLVP();
-        break;
-      case '5':
-        break;
-      case '\r':
-        break;
-      case '\n':
-        break;
-      default:
-        SerialUSB.write("Invalid input\r\n");
+void bulkErase()
+{
+  sendOp(B0000, 0x0E3C);
+  sendOp(B0000, 0x6EF8);
+  sendOp(B0000, 0x0E00);
+  sendOp(B0000, 0x6EF7);
+  sendOp(B0000, 0x0E05);
+  sendOp(B0000, 0x6EF6);
+  sendOp(B1100, 0x0F0F);
+  sendOp(B0000, 0x0E3C);
+  sendOp(B0000, 0x6EF8);
+  sendOp(B0000, 0x0E00);
+  sendOp(B0000, 0x6EF7);
+  sendOp(B0000, 0x0E04);
+  sendOp(B0000, 0x6EF6);
+  sendOp(B1100, 0x8F8F);
+  sendOp(B0000, 0x0000);
+  sendOp(B0000, 0x0000);
+  // Wait atleast 15ms (P11) to let the erase complete
+  delay(15);
+}
+
+void readDeviceID(){
+      sendOp(B0000, 0x0E3F);
+      sendOp(B0000, 0x6EF8);
+      sendOp(B0000, 0x0EFF);
+      sendOp(B0000, 0x6EF7);
+      sendOp(B0000, 0x0EFE);
+      sendOp(B0000, 0x6EF6);
+      sendOp(B1001, 0x0000);
+
+      sendOp(B0000, 0x0E3F);
+      sendOp(B0000, 0x6EF8);
+      sendOp(B0000, 0x0EFF);
+      sendOp(B0000, 0x6EF7);
+      sendOp(B0000, 0x0EFF);
+      sendOp(B0000, 0x6EF6);
+      sendOp(B1001, 0x0000);
+}
+
+void loop()
+{
+  while (SerialUSB.available())
+  {
+    char c = SerialUSB.read();
+
+    if (c == '\n' || c == '\r')
+    {
+      serialcomplete = true;
+      break;
+    }
+    input += c;
+  }
+
+  if (serialcomplete)
+  {
+    switch (input.charAt(0))
+    {
+    case 'W':
+      break;
+    case 'R':
+      break;
+    case 'D':
+      break;
+    case 'E':
+      break;
+    default:
+      SerialUSB.write("Invalid serial command.");
     }
   }
 }
