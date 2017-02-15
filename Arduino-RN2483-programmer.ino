@@ -154,7 +154,7 @@ int sendOp(int cmd, int payload) {
       for (int n = 0; n < 8; n++) {
         //Lower PGC and write bit to PGD
         digitalWrite(PGC, LOW);
-        digitalWrite(PGD, bitRead(cmd, n));
+        digitalWrite(PGD, bitRead(payload, n));
         delayMicroseconds(1);
         
         //Raise PGC to send bit
@@ -188,7 +188,7 @@ int sendOp(int cmd, int payload) {
       // Wait atleast 40ns (P5A)
       delayMicroseconds(1);
       SerialUSB.write("Sent 4 command bits and 8 data payload bits\r\nResponse: ");
-      SerialUSB.print(String(response, BIN)+"\r\n");
+      SerialUSB.print(String(response, HEX)+"\r\n");
       
       return response;
     } else {
@@ -196,7 +196,7 @@ int sendOp(int cmd, int payload) {
       for (int n = 0; n < 16; n++) {
         //Lower PGC and write bit to PGD
         digitalWrite(PGC, LOW);
-        digitalWrite(PGD, bitRead(cmd, n));
+        digitalWrite(PGD, bitRead(payload, n));
         delayMicroseconds(1);
         
         //Raise PGC to send bit
@@ -242,8 +242,11 @@ void loop() {
         sendOp(B1001, 0x0000);
         break;
       case '3':
+        exitLVP();
+        enterLVP();
         break;
       case '4':
+        exitLVP();
         break;
       case '5':
         break;
