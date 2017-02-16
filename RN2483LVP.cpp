@@ -9,7 +9,7 @@ RN2483LVP::RN2483LVP()
 }
 
 //Constructor
-void RN2483LVP::initRN2483LVP(int pgd, int pgc, int mclr, Stream& usbserial)
+void RN2483LVP::initRN2483LVP(int pgd, int pgc, int mclr, Stream &usbserial)
 {
     this->pgd = pgd;
     this->pgc = pgc;
@@ -24,7 +24,7 @@ void RN2483LVP::enterLVP()
     if (not(inLVP))
     {
         inLVP = true;
-        SerialUSB.write("Entering low-voltage program/verify mode\r\n");
+        usbserial->write("Entering low-voltage program/verify mode\r\n");
 
         // Pull all programming pins Low
         digitalWrite(mclr, LOW);
@@ -71,7 +71,7 @@ void RN2483LVP::enterLVP()
 void RN2483LVP::exitLVP()
 {
     inLVP = false;
-    SerialUSB.write("Exiting low-voltage program/verify mode\r\n");
+    usbserial->write("Exiting low-voltage program/verify mode\r\n");
     delayMicroseconds(1);
     digitalWrite(mclr, LOW);
     delayMicroseconds(10);
@@ -119,7 +119,7 @@ int RN2483LVP::sendOp(int cmd, int payload)
     // Check if data payload is the right size
     if ((isread && (payload > 255)) || (!isread && (payload > 65535)))
     {
-        SerialUSB.write("Invalid number of payload bits\r\n");
+        usbserial->write("Invalid number of payload bits\r\n");
         return false;
     }
 
@@ -183,8 +183,6 @@ int RN2483LVP::sendOp(int cmd, int payload)
 
             // Wait atleast 40ns (P5A)
             delayMicroseconds(1);
-            //SerialUSB.write("Sent 4 command bits and 8 data payload bits\r\nResponse: ");
-            //SerialUSB.print(String(response, HEX) + "\r\n");
 
             return response;
         }
@@ -206,14 +204,13 @@ int RN2483LVP::sendOp(int cmd, int payload)
 
             // Wait atleast 40ns (P5A)
             delayMicroseconds(1);
-            //SerialUSB.write("Sent 4 command bits and 16 data payload bits\r\n");
 
             return true;
         }
     }
     else
     {
-        SerialUSB.write("Command not valid\r\n");
+        usbserial->write("Command not valid\r\n");
         return false;
     }
 }
@@ -241,8 +238,8 @@ void RN2483LVP::readDeviceID()
 {
     int DEVID1 = readAddress(0x3F, 0xFF, 0xFE);
     int DEVID2 = readAddress(0x3F, 0xFF, 0xFF);
-    SerialUSB.print("DEVID1: " + String(DEVID1, HEX) + "h\r\n");
-    SerialUSB.print("DEVID2: " + String(DEVID2, HEX) + "h\r\n");
+    usbserial->print("DEVID1: " + String(DEVID1, HEX) + "h\r\n");
+    usbserial->print("DEVID2: " + String(DEVID2, HEX) + "h\r\n");
 }
 
 // Write value to address in config block
@@ -265,20 +262,10 @@ void RN2483LVP::bulkErase()
     delay(20);
 }
 
-// Writes a sequence of bytes into the code memmory
+// Writes a block of bytes to code memory.
 // bytes.length <= 64, bytes[n] <= 0xFFFF
-void RN2483LVP::writeCodeSequence(int addru, int addrh, int addrl, int bytes[])
+void RN2483LVP::writeCodeBlock(int addru, int addrh, int addrl, int bytes[])
 {
-    int LoopCount = 0;
-
-    // Bulk erase chip
-    bulkErase();
-
-    // Direct access to code memory
-    sendOp(B0000, 0x8EA6); // BSF EECON1, EEpgd
-    sendOp(B0000, 0x9CA6); // BCF EECON1, CFGS
-    sendOp(B0000, 0x84A6); // BSF EECON1, WREN
-
     // Point to row to write.
     setTBLPTR(addru, addrh, addrl);
 
@@ -300,11 +287,27 @@ void RN2483LVP::writeCodeSequence(int addru, int addrh, int addrl, int bytes[])
         digitalWrite(pgc, HIGH);
         delayMicroseconds(1);
     }
-    delay(100);
+    delay(2);
 
     // Hold pgc LOW for atleast 200us (P10)
     digitalWrite(pgc, LOW);
-    delayMicroseconds(400);
+    delayMicroseconds(250);
+}
+
+// Writes a sequence of bytes into the code memory
+void RN2483LVP::writeFlash(int bytes[])
+{
+    int LoopCount = 0;
+
+    // Bulk erase chip
+    bulkErase();
+
+    // Direct access to code memory
+    sendOp(B0000, 0x8EA6); // BSF EECON1, EEpgd
+    sendOp(B0000, 0x9CA6); // BCF EECON1, CFGS
+    sendOp(B0000, 0x84A6); // BSF EECON1, WREN
+
+    writeCodeBlock(0, 0, 0, bytes);
 
     exitLVP();
     enterLVP();
@@ -316,6 +319,6 @@ void RN2483LVP::printCodeMemory(int start, int stop)
     for (int n = start; n < stop; n++)
     {
         response = readAddress(0, 0, n);
-        SerialUSB.print(String(response, HEX) + "\r\n");
+        usbserial->print(String(response, HEX) + "\r\n");
     }
 }

@@ -73,7 +73,7 @@ void loop()
     {
     case 'W':
       USBSERIAL.print("Writing\r\n");
-      programmer.writeCodeSequence(0, 0, 0, testseq);
+      programmer.writeFlash(testseq);
       USBSERIAL.print("Done writing\r\n");
       break;
     case 'R':

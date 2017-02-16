@@ -9,7 +9,7 @@ class RN2483LVP
 {
 public:
   RN2483LVP();
-  void initRN2483LVP(int pgd, int pgc, int mclr, Stream& usbserial);
+  void initRN2483LVP(int pgd, int pgc, int mclr, Stream &usbserial);
   void enterLVP();
   void exitLVP();
   int sendOp(int cmd, int payload);
@@ -18,11 +18,12 @@ public:
   void readDeviceID();
   void writeAddressConfig(int addru, int addrh, int addrl, int value);
   void bulkErase();
-  void writeCodeSequence(int addru, int addrh, int addrl, int bytes[]);
+  void writeCodeBlock(int addru, int addrh, int addrl, int bytes[]);
+  void writeFlash(int bytes[]);
   void printCodeMemory(int start, int stop);
 
 private:
-  Stream* usbserial;
+  Stream *usbserial;
   int keyseq[32] = {0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0};
   int pgd;
   int pgc;
