@@ -1,8 +1,8 @@
-// Arduino RN2483 programmer
+// Arduino RN2483 low-voltage programmer
 // Implemented using http://ww1.microchip.com/downloads/en/DeviceDoc/41398B.pdf
 #include "RN2483LVP.h"
 
-#define SIZE 14
+#define USBSERIAL SerialUSB
 #define MCLR 4
 #define PGD 5
 #define PGC 6
@@ -15,12 +15,12 @@ RN2483LVP programmer;
 void setup()
 {
   // put your setup code here, to run once:
-  SerialUSB.begin(57600);
+  USBSERIAL.begin(57600);
 
-  // Wait for serialUSB or start after 30 seconds
-  while ((!SerialUSB) && (millis() < 30000))
+  // Wait for USBSERIAL or start after 30 seconds
+  while ((!USBSERIAL) && (millis() < 30000))
     ;
-  SerialUSB.write("SerialUSB set up\r\n");
+  USBSERIAL.write("USBSERIAL set up\r\n");
 
   // Initialize LED
   pinMode(LED_BUILTIN, OUTPUT);
@@ -43,7 +43,7 @@ void setup()
   delay(10);
 
   // Initialize RN2483 low-voltage programmer object
-  programmer.initRN2483LVP(PGD, PGC, MCLR, SerialUSB);
+  programmer.initRN2483LVP(PGD, PGC, MCLR, USBSERIAL);
 
   // Entering low-voltage program/verify mode
   programmer.enterLVP();
@@ -51,9 +51,9 @@ void setup()
 
 void loop()
 {
-  while (SerialUSB.available())
+  while (USBSERIAL.available())
   {
-    char c = SerialUSB.read();
+    char c = USBSERIAL.read();
 
     if (c == '\n' || c == '\r' || c == 'X')
     {
@@ -72,24 +72,24 @@ void loop()
     switch (input.charAt(0))
     {
     case 'W':
-      SerialUSB.print("Writing\r\n");
+      USBSERIAL.print("Writing\r\n");
       programmer.writeCodeSequence(0, 0, 0, testseq);
-      SerialUSB.print("Done writing\r\n");
+      USBSERIAL.print("Done writing\r\n");
       break;
     case 'R':
-      SerialUSB.print("Reading\r\n");
-      programmer.readTest();
+      USBSERIAL.print("Reading\r\n");
+      programmer.printCodeMemory(0, 31);
       break;
     case 'D':
-      SerialUSB.print("Reading device ID\r\n");
+      USBSERIAL.print("Reading device ID\r\n");
       programmer.readDeviceID();
       break;
     case 'E':
-      SerialUSB.print("Bulk erasing\r\n");
+      USBSERIAL.print("Bulk erasing\r\n");
       programmer.bulkErase();
       break;
     default:
-      SerialUSB.write("Invalid serial command\r\n");
+      USBSERIAL.write("Invalid serial command\r\n");
     }
     serialcomplete = false;
     input = "";

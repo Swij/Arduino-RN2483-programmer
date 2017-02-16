@@ -19,7 +19,7 @@ public:
   void writeAddressConfig(int addru, int addrh, int addrl, int value);
   void bulkErase();
   void writeCodeSequence(int addru, int addrh, int addrl, int bytes[]);
-  void readTest();
+  void printCodeMemory(int start, int stop);
 
 private:
   Stream* usbserial;

@@ -2,10 +2,10 @@
 
 RN2483LVP::RN2483LVP()
 {
-//    this->pgd = 5;
-//    this->pgc = 6;
-//    this->mclr = 4;
-//    this->inLVP = false;
+    this->pgd = 5;
+    this->pgc = 6;
+    this->mclr = 4;
+    this->inLVP = false;
 }
 
 //Constructor
@@ -310,10 +310,10 @@ void RN2483LVP::writeCodeSequence(int addru, int addrh, int addrl, int bytes[])
     enterLVP();
 }
 
-void RN2483LVP::readTest()
+void RN2483LVP::printCodeMemory(int start, int stop)
 {
     int response;
-    for (int n = 0; n < SIZE; n++)
+    for (int n = start; n < stop; n++)
     {
         response = readAddress(0, 0, n);
         SerialUSB.print(String(response, HEX) + "\r\n");
